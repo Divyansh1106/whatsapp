@@ -4,83 +4,95 @@ const response = require("../utils/responseHandler");
 const Message = require("../models/Messages");
 const { uploadFileToCloudinary } = require("../config/cloudinaryConfig");
  
-exports.sendMessage=async(req,res)=>{
-    console.log('=== BACKEND RECEIVED ===');
+exports.sendMessage = async (req, res) => {
+  console.log('=== BACKEND RECEIVED ===');
   console.log('Body:', req.body);
   console.log('File:', req.file);
-  console.log('Headers:', req.headers['content-type']);
   console.log('=======================');
 
-    try{
+  try {
+    const { senderId, recieverId, content, messageStatus } = req.body;
+    const file = req.file;
+    const participants = [senderId, recieverId].sort();
+    
+    let conversation = await Conversation.findOne({ participants: participants });
+    if (!conversation) {
+      conversation = new Conversation({ participants, unreadCount: 0 });
+    }
+    await conversation.save();
+    
+    let imageorvideoURL = null;
+    let contentType = null;
+    let messageContent = content?.trim() || "";
+
+    if (file) {
+      const uploadFile = await uploadFileToCloudinary(file);
+      if (!uploadFile?.secure_url) {
+        return response(res, 404, "something went wrong");
+      }
+      imageorvideoURL = uploadFile?.secure_url;
+      if (file.mimetype.startsWith('image')) {
+        contentType = "image";
+        if (!messageContent) messageContent = "[Photo]";
+      } else if (file.mimetype.startsWith('video')) {
+        contentType = "video";
+        if (!messageContent) messageContent = "[Video]";
+      } else {
+        return response(res, 400, "unsupported file");
+      }
+    } else if (messageContent) {
+      contentType = "text";
+    } else {
+      return response(res, 400, "no message entered or message content is required");
+    }
+
+    const message = new Message({
+      Message: conversation?._id,
+      Sender: senderId,
+      Reciever: recieverId,
+      Content: messageContent,
+      contentType,
+      imageorvideoURL,
+      messageStatus: "send"  // CHANGED: Always start with "send" not messageStatus from frontend
+    });
+    
+    await message.save();
+    
+    conversation.LastMessage = message?._id;
+    conversation.unreadCount = (conversation.unreadCount || 0) + 1;
+    await conversation.save();
+
+    const populatedMessage = await Message.findById(message._id)
+      .populate("Sender", "username profilePicture")
+      .populate("Reciever", "username profilePicture");
+
+    // IMPORTANT: Check if receiver is online and update status
+    if (req.io && req.socketUserMap) {
+      const recieverSocketId = req.socketUserMap.get(recieverId);
+      
+      if (recieverSocketId) {
+        // Receiver is online - emit and update to "delivered"
+        req.io.to(recieverSocketId).emit("receive_message", populatedMessage);
         
-        const { senderId, recieverId, content, messageStatus } = req.body;
-        const file = req.file;
-        const participants = [senderId, recieverId].sort();
-        let conversation = await Conversation.findOne({ participants: participants });
-        if(!conversation){
-            conversation = new Conversation({ participants, unreadCount: 0 });
-        }
-        await conversation.save()
-        let imageorvideoURL = null;
-        let contentType = null;
-        let messageContent = content?.trim() || "";
-
-        if (file) {
-           const uploadFile = await uploadFileToCloudinary(file);
-           if(!uploadFile?.secure_url){
-             return response(res,404,"something went wrong")
-           }
-           imageorvideoURL = uploadFile?.secure_url;
-           if(file.mimetype.startsWith('image')){
-             contentType="image"
-             if(!messageContent) messageContent = "[Photo]";
-           }
-           else if(file.mimetype.startsWith('video')){
-             contentType="video"
-             if(!messageContent) messageContent = "[Video]";
-           }
-           else{
-            return response(res,400,"unsupported file")
-           }
-        }
-        else if(messageContent){
-            contentType="text"
-        }
-        else{
-            return response(res,400,"no message enetered or message content is required")
-        }
-        const message=new Message({
-            Message: conversation?._id,
-            Sender:senderId,
-            Reciever:recieverId,
-            Content:messageContent,
-            contentType,
-            imageorvideoURL,
-            messageStatus
-        })
+        message.messageStatus = "delivered";
         await message.save();
-        conversation.LastMessage = message?._id;
-        conversation.unreadCount = (conversation.unreadCount || 0) + 1;
-        await conversation.save();
-const populatedMessage = await Message.findById(message._id)
-  .populate("Sender", "username profilePicture")
-  .populate("Reciever", "username profilePicture");
-  if(req.io&&req.socketUserMap){
-    const recieverSocketId=req.socketUserMap.get(recieverId)
-    if(recieverSocketId){
-        req.io.to(recieverSocketId).emit("recieve_message",populatedMessage);
-        message.messageStatus="delivered"
-        await message.save();
+        
+        // Update the populated message status
+        populatedMessage.messageStatus = "delivered";
+        
+        console.log("✅ Message delivered to online user");
+      } else {
+        console.log("📤 Receiver offline - status remains 'send'");
+      }
     }
+
+    return response(res, 200, "Message send successfully", populatedMessage);
+  } catch (error) {
+    console.log(error);
+    return response(res, 400, "something went wrong", error);
   }
-        return response(res,200,"Message send succesfully",populatedMessage)
-    }
+};
 
-    catch(error){
-        console.log(error)
-         return response(res,400,"something went wrong",error)
-    }
-}
 exports.getMessages=async(req,res)=>{
     const userId=req.user.id
     console.log(userId);
