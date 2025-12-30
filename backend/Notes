@@ -1,0 +1,54 @@
+
+
+pehle humne ek file bnayei index.js 
+yeh file humari main file hain aur jo backend run hoga woh yha se run hoga
+sabse pehle humne express app ka instanv=ce bnaya aur isko naam diya app
+yeh express is very important as it contain important functions like .json jo ki netwrok se interaxtion main aasqani rehti hain
+fir humne cors configuration kiya jo ki cross origin resource sharing ke liye hain
+yeh isliye jaruri hain kyuki jab humara frontend aur backend alag alag port pe run kar raha hota hain toh browser same origin policy ke karan backend ko access nahi kar pata
+cors is problem ko solve karta hain aur browser ko permission deta hain ki woh backend ko access kar sake   
+jab hum app.use() ka istemal krte hain that means we are making middleware aur Controller
+toh jab hum app.use(cors(corsOption)) krte hain toh hum cors middleware ko apply kr rahe hote hain
+iske baad humne ek simple request logger banaya jo ki har request ko log karta hain jisme request ka method, url aur ip address hota hain
+isme ek next command hota hain jo ki next middleware ko call karta hain jo ki is case main humne data parsersko call kr rhe hain
+fir humne body parser middleware lagaya jo ki request body ko parse karta hain
+yeh bahut jaruri hain kyuki jab hum frontend se data bhejte hain toh woh json format main hota hain aur backend ko isko samajhne ke liye parse karna padta hain
+iske baad humne http server banaya jo ki express app ko wrap karta hain
+yeh http server isliye important hain kyunki io ko inititialize krne ke liye http server ki jrurat padti hain
+fir humne socket.io ko initialize kiya jo ki real time communication ke liye jaruri hain
+isme humne server ko pass kiya taaki yeh http server ke sath kaam kar sake  
+ab next task tha humara kese middleware hoye  jo ki aane wale request object main io aur socketUserMap ko attach kare
+toh humne middleware define kiya jisme humne do parameters that is req.io aur req.socketUserMap ko set kiya
+isse hoga yeh ki har request main yeh do parameters available rahenge aur hum inka use kar sakte hain
+iske baad humne database se connect kiya jo ki asynchronous function hain
+isme humne await ka use kiya taaki ensure ho ki database connection establish ho jaye uske baad hi aage ka code chale
+agar database connection nahi hota toh aage ka code nahi chalega aur error throw karega 
+fir routes define kre ;
+fir humne error handling middleware banaya jo ki global error ko handle karta hain
+isme humne console.error ka use kiya taaki error ko log kar sake aur client ko 500 status code bheje jisme error message hota hain
+iske baad finally humne server start kiya jo ki specified port pe listen karta hain aur console pe ek message print karta hain ki server successfully run ho raha hain
+aur yeh sabhi private info meri env file main stord rehti hain jo ki starting main dot env.config ke through load ki jati hain
+//initializing socket
+socket main io server bnanae main humne initiate kiya hain const io =new Server(server,{
+    cors:{
+        origin:process.env.FRONTEND_URL||"*",
+        credentials:true,
+        methods:["GET","POST","PUT","DELETE","OPTIONS"],
+    },
+    transports:["websocket","polling"], 
+})
+humne jab socket initialize kiya uke baad humne connect event likhe jesehi connect event trigger hoga wese hi tumhara socket ban jayega
+toh iska code humne aise likha io.on("connection",(socket)=>{
+    console.log(`User connected: ${socket.id}`);
+    // Handle socket events here        
+    ab iske baad maine jitne bhi socket events hain uska code likha
+    socket.on("send_user_satatus",(user_id)=>{
+        //yha humne ek var pehle se hi upar set kr rkha hain user id naam se
+        useerid=user_id;
+        onlineUsers.set(user_id,socket.id);
+        socket.join(user_id); // Join a room with the user ID
+        console.log(`User ${user_id} is online with socket ID: ${socket.id}`);
+        await User.findByIdAndUpdate(user_id,{status:"online",LastSeen:new Date()});
+        io.emit("update_user_status",{user_id,status:"online",LastSeen:new Date()});
+    })
+}

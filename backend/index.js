@@ -9,15 +9,16 @@ const chatRoute = require("./routes/chatRoutes");
 const initializeSocket = require("./services/socketService");
 const statusRoute = require("./routes/statusRoutes");
 
-dotenv.config();
+dotenv.config();//environment variable ko load krne k liye
 
 const port = process.env.PORT || 3000; // FIXED: PORT not port
-const app = express();
+const app = express();//made an instance of my express app
 
-// CORS configuration
+// CORS configuration->for cross origin operation if frontend backend runs in diffrent port 
 //cors basically croos origon kincondition main browser frontend ko permisiion deti hain ki go and access my backend
 const corsOption = {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",//matlab jo bhi frontend mere 3000  port main run hoga woh mera backend access kr skta hain
+    // Allow the frontend dev server. Update REACT_APP_FRONTEND_URL in production.
+    origin: process.env.FRONTEND_URL || "http://localhost:3001",
     credentials: true,
 
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -26,6 +27,12 @@ const corsOption = {
 
 // Apply CORS once
 app.use(cors(corsOption));
+
+// Simple request logger for debugging dev environment
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} from ${req.ip}`);
+    next();
+});
 
 // Body parser middleware - CRITICAL ORDER
 app.use(express.json({ limit: '50mb' })); // ✅ Parse JSON bodies
@@ -43,6 +50,7 @@ console.log(">>> io && io.socketUserMap:", !!io, io ? io.socketUserMap : undefin
 
 // Attach Socket.IO to requests
 app.use((req, res, next) => {
+    console.log(">>>req:",!!req,req?req:undefined);
     req.io = io;
     req.socketUserMap = io.socketUserMap;
     next();
@@ -57,13 +65,15 @@ app.use('/api/chat', chatRoute);
 app.use('/api/status/auth', statusRoute); // FIXED: Changed from '/api/status/auth' to '/api/status'
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use(async (err, req, res, next) => {
     console.error("Global error:", err);
-    res.status(500).json({
+    if(err){
+    await res.status(500).json({
         status: "fail",
         message: "Internal server error",
         data: err.message
-    });
+        
+    }) };
 });
 
 // Start server

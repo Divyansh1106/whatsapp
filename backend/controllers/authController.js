@@ -6,7 +6,6 @@ const otpGenerator = require('../utils/otpgenerator');
 const response = require('../utils/responseHandler');
 const { uploadFileToCloudinary } = require('../config/cloudinaryConfig');
 const conversation=require("../models/Conversation")
-
 const sendOTP = async (req, res) => {
     console.log('🎯 sendOTP route hit');
     console.log('📦 Request body:', req.body);
@@ -15,9 +14,14 @@ const sendOTP = async (req, res) => {
     const otp = otpGenerator();
     const expiry = Date.now() + 5 * 60 * 1000;
     let user;
-    
+    //frontend->email
+    //backend->req.body->email->if(!email)return response(res,400,"email is required") else->hum apne existing data base se us email se registered user ko dhundung
+    //2 cases possible 1st case->user mil gya 2n case user nhi mila agar user nhi mila toh humne database main us email se naya user bnayaenege jo ki initially sirf email field hi rkhenga fir us user ke emailOtp aur Emailexpiry field ko update kar denge otp aur expiry se fir us user ko save kar denge
+    //otpGenerate function se otp generate krke usko sendOtpToemail function ko call krke email bhej denge agar email successfully bhej diya toh response me 200 status code ke sath message bhej denge ki otp sent to your email agr email bhejne me koi error aata hai toh catch block me aa jayega jaha pe hum error ko log krdenge aur 500 status code ke sath response bhej denge
+    //sendOTPtoEmail function main mera error handling hoga us function ka
+    //fir us response ko bhej denge
     try {
-        // Email flow
+        
         if (email) {
             console.log('📧 Processing email OTP');
             user = await User.findOne({ email: email });
@@ -31,10 +35,10 @@ const sendOTP = async (req, res) => {
             console.log('📤 Sending email...');
             await sendOtpToemail(email, otp);
             console.log('✅ Email sent successfully');
-            
+
             return response(res, 200, "OTP sent to your email", { email });
         }
-        
+
         // Phone flow
         if (!phone || !phoneSuffix) {
             return response(res, 400, "phone number and suffix are required");
@@ -42,7 +46,10 @@ const sendOTP = async (req, res) => {
         
         console.log('📱 Processing phone OTP');
         const fullPhoneNumber = `${phoneSuffix}${phone}`;
-        console.log('Full phone number:', fullPhoneNumber);
+                        // In development include the OTP in the response to ease testing
+                        const respData = { email };
+                        if (process.env.NODE_ENV !== 'production') respData.__dev_otp = otp;
+                        return response(res, 200, "OTP sent to your email", respData);
         
         user = await User.findOne({ phone: phone });
         if (!user) {
@@ -66,6 +73,10 @@ const sendOTP = async (req, res) => {
         return response(res, 500, "something went wrong: " + error.message);
     }
 };
+//frontend->otp,aur useUserStore se us user ka mail lenge
+//jese otp submit krega axios se post request jayega backend ke verify otp route pe
+//backend-agar mail ke through ho rha hain toh bas hum check krenge user.emailotp aur jo enterd otp hain woh equal hain ya nhi hain warna 
+
 
 const verifyOTP = async (req, res) => {
     console.log('🎯 verifyOTP route hit');
@@ -124,9 +135,11 @@ const verifyOTP = async (req, res) => {
         
        const token = generateToken({ id: user._id,email:user.email,phone:`${phoneSuffix}${phone}`});;
         
-        res.cookie("auth_token", token, { // Fixed: syntax error
+        // Set cookie for local development; SameSite 'lax' helps cross-port dev flows
+        res.cookie("auth_token", token, {
             httpOnly: true,
-            maxAge: 1000 * 60 * 60 * 24 * 365
+            maxAge: 1000 * 60 * 60 * 24 * 365,
+            sameSite: 'lax',
         });
         
         return response(res, 200, "OTP verified successfully", { token, user });
@@ -167,7 +180,7 @@ const updateProfile=async(req,res)=>{
 }
 const logout=async(req,res)=>{
     try{
-        res.cookie("auth_token","",{expires:new Date(0)});
+        res.cookie("auth_token","",{expires:new Date(0), sameSite: 'lax'});
         return response(res, 200, "logout succesfully")
     }
     catch(error){

@@ -5,7 +5,7 @@ const Message = require("../models/Messages");
 const onlineUsers = new Map();
 const typingUsers = new Map();
 //again specified cors for websocket servers 
-const initializeSocket = (server) => {
+const initializeSocket = function(server) {
   const io = new Server(server, {
     cors: {
       origin: process.env.FRONTEND_URL || "*",
@@ -16,7 +16,7 @@ const initializeSocket = (server) => {
     pingTimeout: 60000,
   });
 
-  io.on("connection", (socket) => {
+  io.on("connection",function (socket) {
     console.log(`User Connected :${socket.id}`);
     let userId = null;
     socket.on("user_connected", async (connectingUserId) => {
@@ -37,7 +37,7 @@ const initializeSocket = (server) => {
       const isOnline = onlineUsers.has(requestedUserId);
       callback({
         userId: requestedUserId,
-        isOnline,
+        isOnline: isOnline,
         lastSeen: isOnline ? new Date() : null,
       });
     });
@@ -108,9 +108,11 @@ const initializeSocket = (server) => {
     socket.on("typing_stop", ({ conversationId, recieverId }) => {
       if (!userId || !conversationId || !recieverId) return;
       if (!typingUsers.has(userId)) {
-        const userTyping = typingUsers.get(userId);
-        userTyping[conversationId] = false;
+        typingUsers.set(userId, {});
+        
       }
+      const userTyping = typingUsers.get(userId);
+      userTyping[conversationId] = false;
 
       if (userTyping[`${conversationId}_timeout`]) {
         clearTimeout(userTyping[`${conversationId}_timeout`]);

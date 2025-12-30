@@ -3,7 +3,7 @@ const dotenv=require("dotenv");
 
 dotenv.config({})
 console.log(process.env.username)
-  console.log(process.env.password)
+console.log(process.env.password)
 const transporter=nodemailer.createTransport({
     service:"gmail",
     auth:{
@@ -16,7 +16,7 @@ const transporter=nodemailer.createTransport({
 
 
 })
- 
+//nodemailer se transport create kiya jo ki transporter object return krta hain fir is transporter object check kiya  ki yeh verified hain ya nhi agar verified hain toh fir humne send otp function bnaya ajisme humne otp aur user ka mail liya ab fir transporter
 transporter.verify((error,success) => {
     if(error){
         console.log("there is a error",error);
@@ -29,11 +29,11 @@ const sendOtpToemail=async (email,otp) => {
     const html=`
     <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
       <h2 style="color: #075e54;">🔐 WhatsApp Web Verification</h2>
-      
+
       <p>Hi there,</p>
-      
+     
       <p>Your one-time password (OTP) to verify your WhatsApp Web account is:</p>
-      
+
       <h1 style="background: #e0f7fa; color: #000; padding: 10px 20px; display: inline-block; border-radius: 5px; letter-spacing: 2px;">
         ${otp}
       </h1>
@@ -50,7 +50,7 @@ const sendOtpToemail=async (email,otp) => {
     </div>
   `;
   await transporter.sendMail({
-    from:`nishant pagal <"divyanshkhandelwal9b@gmail.com">`,
+    from:`<"divyanshkhandelwal9b@gmail.com">`,
     to:email,
     subject:"Your Whatsapp verification code",
     html

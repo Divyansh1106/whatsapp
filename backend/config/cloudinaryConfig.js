@@ -5,7 +5,7 @@ const fs = require("fs");
 
 dotenv.config();
 
-// Cloudinary config
+
 cloudinary.config({
     cloud_name: process.env.CLOUD_NAME,
     api_key: process.env.API_KEY,

@@ -13,7 +13,7 @@ if (!SSID || !AuthToken || !AccountSID) {
     console.error('AccountSID:', AccountSID ? '✅' : '❌');
 }
 
-const client = twilio(AccountSID, AuthToken);
+const client = twilio(AccountSID, AuthToken);//to config twilio
 console.log("client");
 
 const sendOTPtoPhoneNumber = async (phoneNumber) => {
@@ -65,7 +65,7 @@ const verification = async (phoneNumber, otp) => {
         console.error('❌ Twilio verification error:');
         console.error('Message:', error.message);
         console.error('Code:', error.code);
-        
+
         throw new Error(`Twilio verification error: ${error.message}`);
     }
 };
